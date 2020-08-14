@@ -1,5 +1,5 @@
-# Lint as: python2, python3
-# Copyright 2019 Google LLC. All Rights Reserved.
+# Lint as: python3
+# Copyright 2020 Google LLC. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,22 @@
 # limitations under the License.
 """Package Setup script for TFX CIFAR10 example."""
 
-from __future__ import print_function
+import os
 
 from setuptools import find_packages
 from setuptools import setup
+
+
+def select(package_name, *, default, github_master=None):
+  """Select dependency string based on TFX_DEPENDENCY_SELECTOR env var."""
+  selector = os.environ.get('TFX_DEPENDENCY_SELECTOR')
+  if selector == 'UNCONSTRAINED':
+    return package_name
+  elif selector == 'GITHUB_MASTER' and github_master is not None:
+    return package_name + github_master
+  else:
+    return package_name + default
+
 
 # Get the long description from the README file.
 with open('README.md') as fp:
@@ -51,7 +63,9 @@ setup(
     ],
     namespace_packages=[],
     install_requires=[
-        'tfx>=0.23.0,<=0.24.0.dev',
+        select('tfx',
+               default='>=0.23.0,<=0.24.0.dev',
+               github_master='@git+https://github.com/tensorflow/tfx@master'),
         'tflite-support>=0.1.0a1,<0.1.1',
         'flatbuffers>=1.12,<1.13',
         'tensorflowjs>=2.0.1,<2.0.2',

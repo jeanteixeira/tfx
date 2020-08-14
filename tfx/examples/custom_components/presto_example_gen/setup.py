@@ -1,5 +1,5 @@
-# Lint as: python2, python3
-# Copyright 2019 Google LLC. All Rights Reserved.
+# Lint as: python3
+# Copyright 2020 Google LLC. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,8 +53,18 @@ def generate_proto():
   if subprocess.call(protoc_command) != 0:
     sys.exit(-1)
 
-
 generate_proto()
+
+
+def select(package_name, *, default, github_master=None):
+  """Select dependency string based on TFX_DEPENDENCY_SELECTOR env var."""
+  selector = os.environ.get('TFX_DEPENDENCY_SELECTOR')
+  if selector == 'UNCONSTRAINED':
+    return package_name
+  elif selector == 'GITHUB_MASTER' and github_master is not None:
+    return package_name + github_master
+  else:
+    return package_name + default
 
 # Get version from version module.
 with open('presto_component/version.py') as fp:
@@ -95,7 +105,9 @@ setup(
     namespace_packages=[],
     install_requires=[
         'presto-python-client>=0.7,<0.8',
-        'tfx>=0.23.0,<=0.24.0.dev',
+        select('tfx',
+               default='>=0.23.0,<=0.24.0.dev',
+               github_master='@git+https://github.com/tensorflow/tfx@master'),
     ],
     python_requires='>=3.5,<4',
     packages=find_packages(),

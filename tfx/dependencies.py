@@ -1,5 +1,5 @@
-# Lint as: python2, python3
-# Copyright 2019 Google LLC. All Rights Reserved.
+# Lint as: python3
+# Copyright 2020 Google LLC. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,43 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Package dependencies for TFX."""
+"""Package dependencies for TFX.
+
+tfx and family libraries (such as tensorflow-model-analysis) adopts environment
+variable (TFX_DEPENDENCY_SELECTOR) based dependency version selection. This
+dependency will be baked in to the wheel, in other words you cannot change
+dependency string once wheel is built.
+
+- UNCONSTRAINED uses dependency without any version constraint string, which is
+  useful when you manually build wheels of parent library (e.g. tfx-bsl) of
+  arbitrary version, and install it without dependency constraints conflict.
+- NIHTLY uses x.(y+1).0.dev version as a lower version constraint. tfx nightly
+  will transitively depend on nightly versions of other TFX family libraries,
+  and this version constraint is required.
+- GITHUB_MASTER uses github master branch URL of the dependency, which is
+  useful during development, or when depending on the github master HEAD
+  version of tfx. This is because tfx github master HEAD version is actually
+  using github master HEAD version of parent libraries.
+  Caveat: URL dependency is not upgraded with --upgrade flag, and you have to
+  specify --force-reinstall flag to fetch the latest change from each master
+  branch HEAD.
+- By default, the same dependency constraints that the latest tfx release uses
+  will be used.
+"""
+import os
+
+
+def select(package_name, *, default, nightly=None, github_master=None):
+  """Select dependency string based on TFX_DEPENDENCY_SELECTOR env var."""
+  selector = os.environ.get('TFX_DEPENDENCY_SELECTOR')
+  if selector == 'UNCONSTRAINED':
+    return package_name
+  elif selector == 'NIGHTLY' and nightly is not None:
+    return package_name + nightly
+  elif selector == 'GITHUB_MASTER' and github_master is not None:
+    return package_name + github_master
+  else:
+    return package_name + default
 
 
 def make_required_install_packages():
@@ -34,19 +70,34 @@ def make_required_install_packages():
       'jinja2>=2.7.3,<3',
       'keras-tuner>=1,<2',
       'kubernetes>=10.0.1,<12',
-      # LINT.IfChange
-      'ml-metadata>=0.23,<0.24',
-      # LINT.ThenChange(//tfx/workspace.bzl)
+      select('ml-metadata',
+             # LINT.IfChange
+             default='>=0.23,<0.24',
+             # LINT.ThenChange(opensource_only/build/tfx.workspace.bzl)
+             nightly='>=0.24.0.dev',
+             github_master='@git+https://github.com/google/ml-metadata@master'),
       'protobuf>=3.7,<4',
       'pyarrow>=0.17,<0.18',
       'pyyaml>=3.12,<6',
       'six>=1.10,<2',
       'tensorflow>=1.15.2,!=2.0.*,!=2.1.*,!=2.2.*,<3',
-      'tensorflow-data-validation>=0.23,<0.24',
-      'tensorflow-model-analysis>=0.23,<0.24',
+      select('tensorflow-data-validation',
+             default='>=0.23,<0.24',
+             nightly='>=0.24.0.dev',
+             github_master='@git+https://github.com/tensorflow/data-validation@master'),  # pylint: disable=line-too-long
+      select('tensorflow-model-analysis',
+             default='>=0.23,<0.24',
+             nightly='>=0.24.0.dev',
+             github_master='@git+https://github.com/tensorflow/model-analysis@master'),  # pylint: disable=line-too-long
       'tensorflow-serving-api>=1.15,!=2.0.*,!=2.1.*,!=2.2.*,<3',
-      'tensorflow-transform>=0.23,<0.24',
-      'tfx-bsl>=0.23,<0.24',
+      select('tensorflow-transform',
+             default='>=0.23,<0.24',
+             nightly='>=0.24.0.dev',
+             github_master='@git+https://github.com/tensorflow/transform@master'),  # pylint: disable=line-too-long
+      select('tfx-bsl',
+             default='>=0.23,<0.24',
+             nightly='>=0.24.0.dev',
+             github_master='@git+https://github.com/tensorflow/tfx-bsl@master'),
   ]
 
 
